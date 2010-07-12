@@ -14,11 +14,11 @@ class TwitterObject(object):
     normalizing values using _transformation dict.
 
     For example: {'name': 'Reflejo', 'age': '25'}
-    Will be translated to: 
+    Will be translated to:
         object.name = u'Reflejo'
         object.age = 25
     """
-    
+
     _transformation = {}
 
     def __init__(self, dictargs=None, **kwargs):
@@ -35,7 +35,7 @@ class TwitterSearchResult(TwitterObject):
     """
     Twitter status representation.
     """
-    
+
     _transformation = {
         'text': unescape,
         'to_user_id': int,
@@ -66,7 +66,7 @@ class TwitterUser(TwitterObject):
     """
     Twitter user representation.
     """
-    
+
     _transformation = {
         'created_at': parsedate,
         'description': unescape,
@@ -97,7 +97,7 @@ class TwitterUser(TwitterObject):
 
 
 class TwitterStatus(TwitterObject):
-    
+
     _transformation = {
         'created_at': parsedate,
         'id': int,
@@ -110,3 +110,20 @@ class TwitterStatus(TwitterObject):
         'in_reply_to_screen_name': unicode,
         'user': TwitterUser,
     }
+
+
+class TwitterList(TwitterObject):
+
+    _transformation = {
+        'id': int,
+        'name': unicode,
+        'full_name': unicode,
+        'slug': unicode,
+        'description': unicode,
+        'subscriber_count': int,
+        'member_count': int,
+        'uri': unicode,
+        'mode': unicode,
+        'user': TwitterUser,
+    }
+

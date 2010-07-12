@@ -7,33 +7,33 @@ import math
 from parsers import parse_iso8601
 from datetime import datetime
 from objects import TwitterUser, TwitterStatus, TwitterTrend, \
-                    TwitterSearchResult
+                    TwitterSearchResult, TwitterList
 
-ITEMS_PER_PAGE = 100
 
 #########################################################
 # Status Set
 #########################################################
 class PaginationSet(object):
     """
-    Pagination set it's a lazy bunch of data: url is retrived only 
+    Pagination set it's a lazy bunch of data: url is retrived only
     when resultset is sliced.
 
     params are:
         fetch: callback function to fetch url
         uri: URI for request
-        kwargs: depends on Pagination class. usually will 
+        kwargs: depends on Pagination class. usually will
                 use domain and since_id
     """
 
     resultclass = None
 
-    def __init__(self, fetch, uri, **kwargs):
+    def __init__(self, fetch, uri, items_per_page=100, **kwargs):
         self._fetch = fetch
         self.uri = uri
+        self.items_per_page = items_per_page
         self.domain = kwargs.pop('domain', None)
         self.since_id = kwargs.pop('since_id', 0)
-        
+
         # Defaults
         self._results = []
         self._actualidx = 0
@@ -55,12 +55,12 @@ class PaginationSet(object):
         return result
 
     def _fetch_results(self, offset):
-        page = int(math.ceil(offset / ITEMS_PER_PAGE)) + 1
+        page = int(math.ceil(offset / self.items_per_page)) + 1
         data = self._get_data(page)
 
         # Fill results with empty values. This is done because user can slice
         # a distance of more than one page for example results[10000:10010]
-        fill_amount = (page - 1) * ITEMS_PER_PAGE
+        fill_amount = (page - 1) * self.items_per_page
         for i in xrange(len(self._results), fill_amount):
             self._results.append(None)
 
@@ -68,10 +68,11 @@ class PaginationSet(object):
                              domain=self.domain)
         results = self._get_results(result)
         results_count = len(results)
-        for i in xrange(ITEMS_PER_PAGE):
+        print results
+        for i in xrange(self.items_per_page):
             add = '' if i >= results_count else self.resultclass(**results[i])
 
-            # There is a bug in twitter API. You cannot use max_id 
+            # There is a bug in twitter API. You cannot use max_id
             # and since_id together. See:
             # http://code.google.com/p/twitter-api/issues/detail?id=486
             if hasattr(add, 'id') and add.id <= self.since_id:
@@ -124,13 +125,14 @@ class PaginationSet(object):
 
         if isinstance(k, slice):
             offset = k.start or 0
-            limit = (k.stop - offset) if k.stop is not None else ITEMS_PER_PAGE
+            limit = (k.stop - offset) if k.stop is not None else self.items_per_page
         else:
             offset = k
             limit = 1
 
+        # import ipdb; ipdb.set_trace()
         while True:
-            # Check if some result is None or if result is smaller than 
+            # Check if some result is None or if result is smaller than
             # requested index.
             end = offset + limit
 
@@ -142,7 +144,7 @@ class PaginationSet(object):
 
             # if we got less results that per_page we are done.
             fetch_total = self._fetch_results(offset)
-            if fetch_total < ITEMS_PER_PAGE:
+            if fetch_total < self.items_per_page:
                 break
 
             offset = len(self._results)
@@ -156,7 +158,7 @@ class PaginationSet(object):
 
 class TwitterUserSet(PaginationSet):
     """
-    User result set. It's a lazy bunch of users. 
+    User result set. It's a lazy bunch of users.
     """
 
     resultclass = TwitterUser
@@ -175,7 +177,7 @@ class TwitterTrendSet(dict):
 
     def __init__(self, results):
         self.as_of = datetime.fromtimestamp(int(results['as_of']))
-        
+
         for dat, trends in results['trends'].iteritems():
             dat = parse_iso8601(dat)
             for trend in trends:
@@ -184,7 +186,7 @@ class TwitterTrendSet(dict):
 
 class TwitterSearchResultSet(PaginationSet):
     """
-    Status result set. It's a lazy bunch of search results. 
+    Status result set. It's a lazy bunch of search results.
     """
 
     resultclass = TwitterSearchResult
@@ -204,7 +206,7 @@ class TwitterSearchResultSet(PaginationSet):
         return {
             'q': self.query,
             'page': page,
-            'rpp': ITEMS_PER_PAGE,
+            'rpp': self.items_per_page,
             'since_id': self.since_id if not self.max_id else None,
             'lang': self.lang,
             'max_id': self.max_id,
@@ -214,7 +216,7 @@ class TwitterSearchResultSet(PaginationSet):
 
 class TwitterStatusSet(PaginationSet):
     """
-    Status result set. It's a lazy bunch of statuses. 
+    Status result set. It's a lazy bunch of statuses.
     """
 
     resultclass = TwitterStatus
@@ -226,8 +228,31 @@ class TwitterStatusSet(PaginationSet):
     def _get_data(self, page):
         return {
             'page': page,
-            'count': ITEMS_PER_PAGE,
+            'count': self.items_per_page,
             'since_id': self.since_id if not self.max_id else None,
             'screen_name': self.user,
             'max_id': self.max_id,
         }
+
+
+class TwitterListSet(PaginationSet):
+    """
+    List result set. It's a lazy bunch of lists.
+    """
+
+    resultclass = TwitterList
+
+    def __init__(self, *args, **kwargs):
+        self._next_cursor = kwargs.pop('cursor', -1)
+        super(TwitterListSet, self).__init__(*args, **kwargs)
+
+    def _get_results(self, result):
+        self._next_cursor = result.get('next_cursor')
+        return result['lists']
+
+    def _get_data(self, page):
+        d = {}
+        if self._next_cursor:
+            d['cursor'] = self._next_cursor
+        return d
+

@@ -25,7 +25,7 @@ import urllib, urllib2
 import urlparse
 from objects import TwitterUser, TwitterStatus
 from setobjects import TwitterTrendSet, TwitterUserSet, TwitterStatusSet, \
-                       TwitterSearchResultSet
+                       TwitterSearchResultSet, TwitterListSet
 
 __author__ = 'Martin Conte Mac Donell <Reflejo@gmail.com>'
 __version__ = '0.1-beta'
@@ -47,7 +47,7 @@ SOCKET_TIMEOUT = 10
 
 class TwitterError(Exception):
     """Base class for Twitter errors"""
-  
+
     @property
     def message(self):
         """Returns the first argument used to construct this error."""
@@ -77,7 +77,7 @@ def authenticated(func):
 
 class Twitter(object):
     """
-    Main Twitter API. 
+    Main Twitter API.
 
     Usage:
 
@@ -89,7 +89,7 @@ class Twitter(object):
     See each method for more information.
     """
 
-    def __init__(self, username=None, password=None, key=None, secret=None, 
+    def __init__(self, username=None, password=None, key=None, secret=None,
                  access_token=None):
         self._auth_header = ()
         if (username and password) or (key and secret):
@@ -123,7 +123,7 @@ class Twitter(object):
             self._consumer = oauth.OAuthConsumer(key, secret)
             self._connection = httplib.HTTPSConnection(SERVER)
             self._signature_method = oauth.OAuthSignatureMethod_HMAC_SHA1()
-            if access_token: 
+            if access_token:
                 self.token = oauth.OAuthToken.from_string(access_token)
 
         else:
@@ -168,11 +168,11 @@ class Twitter(object):
     def request_token_to_access_token(self, unauthed_token):
         # Exchange unauthed_token for acces_token
         if isinstance(unauthed_token, str):
-            unauthed_token = oauth.OAuthToken.from_string(unauthed_token)   
+            unauthed_token = oauth.OAuthToken.from_string(unauthed_token)
 
         oauth_request = oauth.OAuthRequest.from_consumer_and_token(
             self._consumer, token=unauthed_token, http_url=ACCESS_TOKEN_URL)
-        oauth_request.sign_request(self._signature_method, self._consumer, 
+        oauth_request.sign_request(self._signature_method, self._consumer,
                                    unauthed_token)
         resp = self._fetch_oauth_response(oauth_request)
         return oauth.OAuthToken.from_string(resp.read())
@@ -195,7 +195,7 @@ class Twitter(object):
         oauth_request = oauth.OAuthRequest.from_consumer_and_token(
             self._consumer, token=self.token, http_method=method, http_url=url,
             parameters=get_data or post_data)
-        oauth_request.sign_request(self._signature_method, self._consumer, 
+        oauth_request.sign_request(self._signature_method, self._consumer,
                                    self.token)
 
         response = self._fetch_oauth_response(oauth_request)
@@ -206,12 +206,12 @@ class Twitter(object):
         #
         # @uri: The uri to retrive
         # @domain: Twitter domain API. [optional]
-        # @post_data: If set, POST will be used and this dictionary will be 
+        # @post_data: If set, POST will be used and this dictionary will be
         #             included as parameters. [optional]
-        # @get_data: A dictionary which will be encoded and added to query 
+        # @get_data: A dictionary which will be encoded and added to query
         #            string. [optional]
         #
-        # Returns: A parsed response or raise an error if field 
+        # Returns: A parsed response or raise an error if field
         #          'error' is found.
 
         # Make it iterable if it's not :-)
@@ -221,7 +221,7 @@ class Twitter(object):
         # Reduce dictionary. Remove empty values.
         post_data = dict([(k, v) for k, v in post_data.iteritems() if v])
         get_data = dict([(k, v) for k, v in get_data.iteritems() if v])
- 
+
         if hasattr(self, '_consumer'):
             # OAuth method!
             url = urlparse.urljoin("https://%s" % (domain or API_DOMAIN), uri)
@@ -236,10 +236,10 @@ class Twitter(object):
 
         req = urllib2.Request(url)
         post_data = urllib.urlencode(post_data) or None
-        
+
         if self._auth_header:
             req.add_header(*self._auth_header)
-    
+
         try:
             handle = urllib2.urlopen(req, post_data)
         except urllib2.URLError, e:
@@ -253,8 +253,8 @@ class Twitter(object):
         """
         Returns the remaining number of API requests available to the
         requesting user before the API limit is reached for the current hour.
-        Calls to rate_limit_status do not count against the rate limit.  
-        If authentication credentials are provided, the rate limit status 
+        Calls to rate_limit_status do not count against the rate limit.
+        If authentication credentials are provided, the rate limit status
         for the authenticating user is returned.  Otherwise, the rate limit
         status for the requester's IP address is returned.
 
@@ -283,26 +283,26 @@ class Twitter(object):
     @authenticated
     def verify_credentials(self):
         """
-        Returns an HTTP 200 OK response code and a representation of the 
+        Returns an HTTP 200 OK response code and a representation of the
         requesting user if authentication was successful; returns None if not.
-        Use this method to test if supplied user credentials are valid. 
+        Use this method to test if supplied user credentials are valid.
         """
-        uri = '/account/verify_credentials.json'        
+        uri = '/account/verify_credentials.json'
         return TwitterUser(**self._fetchurl(uri))
 
     def search(self, query, since_id=None, lang=None, geocode=None):
         """
         Returns tweets that match a specified query.
 
-        @lang: Restricts tweets to the given language, given by an 
+        @lang: Restricts tweets to the given language, given by an
                ISO 639-1 code. [optional]
-        @since_id: Returns tweets with status ids greater than the given 
+        @since_id: Returns tweets with status ids greater than the given
                    id. [optional]
-        @geocode: Returns tweets by users located within a given radius 
-                  of the given latitude/longitude, where the user's location 
+        @geocode: Returns tweets by users located within a given radius
+                  of the given latitude/longitude, where the user's location
                   is taken from their Twitter profile. The parameter value is
-                  specified by "latitide,longitude,radius", where radius 
-                  units must be specified as either "mi" (miles) or 
+                  specified by "latitide,longitude,radius", where radius
+                  units must be specified as either "mi" (miles) or
                   "km" (kilometers). [optional]
 
         >>> search = api.search('from:testpy') # Data is not fetched
@@ -316,7 +316,7 @@ class Twitter(object):
 
         """
         uri = '/search.json'
-        return TwitterSearchResultSet(self._fetchurl, uri, 
+        return TwitterSearchResultSet(self._fetchurl, uri,
                                       domain=SEARCH_API_DOMAIN,
                                       query=query, lang=lang, geocode=geocode,
                                       since_id=since_id)
@@ -330,7 +330,7 @@ class Twitter(object):
         >>> for date, trends in api.trends().iteritems():
         ...     trends[0]
         <pytweet.objects.TwitterTrend object at 0x...>
-        
+
         """
         assert by in (DATECURRENT, DATEDAILY, DATEWEEKLY), \
             "Invalid by parameter, should be DATECURRENT, DATEDAY or DATEWEEK"
@@ -345,13 +345,13 @@ class Twitter(object):
 
     def update(self, msg, in_reply_to=0):
         """
-        Updates the authenticating user's status. Requires the status 
-        parameter specified below. A status update with text identical 
+        Updates the authenticating user's status. Requires the status
+        parameter specified below. A status update with text identical
         to the authenticating user's current status will be ignored.
 
-        @msg  The text of your status update. URL encode as necessary. 
+        @msg  The text of your status update. URL encode as necessary.
               Statuses over 140 characters will be forceably truncated.
-        @in_reply_to The ID of an existing status that the 
+        @in_reply_to The ID of an existing status that the
                      update is in reply to. [optional]
 
         >>> status = api.update('Big success!')
@@ -371,7 +371,7 @@ class Twitter(object):
         Returns extended information of a given user, specified by ID or
         screen name. The author's most recent status will be included.
 
-        @user  The ID or screen name of a user. 
+        @user  The ID or screen name of a user.
 
         >>> user = api.user('testpy')
         >>> user.name
@@ -388,15 +388,15 @@ class Twitter(object):
     @authenticated
     def followers(self, user=None):
         """
-        Returns the authenticating user's followers, each with current 
-        status inline.  They are ordered by the order in which they 
+        Returns the authenticating user's followers, each with current
+        status inline.  They are ordered by the order in which they
         joined Twitter
 
         @user  The ID or screen name of a user [optional]
 
         >>> for user in api.followers('testpy'):
         ...     user.name, user
-        ... 
+        ...
         (u'Atommica Cheat', <pytweet.objects.TwitterUser object at 0x...>)
 
         """
@@ -417,7 +417,7 @@ class Twitter(object):
         ...     user.name
         ...     user
         ...     user.status
-        ... 
+        ...
         u'Reflejo'
         <pytweet.objects.TwitterUser object at 0x...>
         <pytweet.objects.TwitterStatus object at 0x...>
@@ -432,7 +432,7 @@ class Twitter(object):
         Destroys the status specified by the required ID parameter.
         The authenticating user must be the author of the specified status.
 
-        @user  The ID of the status to delete 
+        @user  The ID of the status to delete
 
         >>> api.destroy(12345)
         <pytweet.objects.TwitterStatus object at 0x...>
@@ -444,8 +444,8 @@ class Twitter(object):
 
     def user_timeline(self, user=None):
         """
-        Returns the most recent user's timeline via the id parameter. 
-        This is the equivalent of the Web /<user> page for your own user, 
+        Returns the most recent user's timeline via the id parameter.
+        This is the equivalent of the Web /<user> page for your own user,
         or the profile page for a third party.
 
         @user  The ID or screen name of a user [optional]
@@ -453,7 +453,7 @@ class Twitter(object):
         >>> for status in api.user_timeline('testpy'):
         ...     status.text
         ...     status
-        ... 
+        ...
         u'Big success!'
         <pytweet.objects.TwitterStatus object at 0x...>
 
@@ -464,3 +464,28 @@ class Twitter(object):
 
         uri = '/statuses/user_timeline.json'
         return TwitterStatusSet(self._fetchurl, uri, user=user)
+
+    def user_lists_memberships(self, user=None):
+        """
+        Returns the lists the specified user has been added to.
+        http://apiwiki.twitter.com/Twitter-REST-API-Method%3A-GET-list-memberships
+
+        @user   The ID or screen name of a user [optional]
+
+        >>> for l in api.user_lists_memberships('testpy'):
+        ...     l
+        ...     l.name
+        ...     l.user.username
+        ...
+        <pytweet.objects.TwitterList object at 0x...>
+        u'test'
+        u'k0001'
+
+        """
+
+        if not self.is_authenticated():
+            raise TwitterError("This method requires authentication")
+
+        uri = '/%s/lists/memberships.json' % user
+
+        return TwitterListSet(self._fetchurl, uri, items_per_page=20)
