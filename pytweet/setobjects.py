@@ -68,7 +68,6 @@ class PaginationSet(object):
                              domain=self.domain)
         results = self._get_results(result)
         results_count = len(results)
-        print results
         for i in xrange(self.items_per_page):
             add = '' if i >= results_count else self.resultclass(**results[i])
 
